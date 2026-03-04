@@ -1,65 +1,43 @@
 import os
-from typing import TypedDict
+from fastapi import FastAPI
+from pydantic import BaseModel
 from dotenv import load_dotenv
-
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
 from langsmith import traceable
+from langchain_openai import ChatOpenAI
 
 load_dotenv()
 
+app = FastAPI()
 
-# -------------------------
-# STATE
-# -------------------------
+# ===== MODEL =====
+llm = ChatOpenAI(model="gpt-4o-mini")
 
-class AgentState(TypedDict):
+# ===== REQUEST BODY =====
+class QueryRequest(BaseModel):
     query: str
-    report: str
 
+# ===== AGENT LOGIC =====
+@traceable
+def run_intelligence_cycle(user_query: str) -> str:
+    prompt = f"""
+    You are an Executive Intelligence Agent.
 
-# -------------------------
-# MODEL
-# -------------------------
+    Generate a professional intelligence report about:
 
-llm = ChatOpenAI(
-    model="gpt-4o-mini",
-    temperature=0.3
-)
+    {user_query}
 
+    Structure:
+    - Executive Summary
+    - Market Overview
+    - Competitive Landscape
+    - Strategic Recommendations
+    """
 
-# -------------------------
-# PROMPT
-# -------------------------
-
-ANALYST_SYSTEM_PROMPT = """
-You are a senior AI industry analyst writing for C-suite executives.
-Your job is to transform research into a structured executive intelligence briefing.
-
-Output must be professional Markdown.
-Include:
-- Executive Summary
-- Key Developments
-- Strategic Implications
-- Risks
-- Recommended Actions
-"""
-
-
-prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", ANALYST_SYSTEM_PROMPT),
-        ("human", "{query}")
-    ]
-)
-
-
-# -------------------------
-# AGENT FUNCTION (TRACED)
-# -------------------------
-
-@traceable(name="ai_market_agent_run")
-def run_agent(query: str) -> str:
-    chain = prompt | llm
-    response = chain.invoke({"query": query})
+    response = llm.invoke(prompt)
     return response.content
+
+# ===== API ENDPOINT =====
+@app.post("/run-agent")
+async def run_agent(request: QueryRequest):
+    report = run_intelligence_cycle(request.query)
+    return {"report": report}
