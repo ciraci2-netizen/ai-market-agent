@@ -5,77 +5,57 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
-# Carica variabili ambiente
+# Load env vars
 load_dotenv()
 
 app = FastAPI()
 
-# ===== CORS CONFIGURATION =====
+# CORS config to let n8n access the API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "*",  # Allow all origins for n8n cloud compatibility
-        # Alternatively, specify n8n URL: "https://your-n8n-instance.com"
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Modello OpenAI
 llm = ChatOpenAI(
     model="gpt-4o-mini",
     temperature=0.3
 )
 
-# Schema richiesta
 class QueryRequest(BaseModel):
     query: str
 
 
-# ===== AGENT LOGIC =====
-async def run_intelligence_cycle(user_query: str) -> str:
-
-    prompt = f"""
-You are an Executive Intelligence Analyst.
-
-Generate a professional intelligence report about:
-
-{user_query}
-
-Structure the report in Markdown with these sections:
-
-## Executive Summary
-## Market Overview
-## Competitive Landscape
-## Strategic Recommendations
-
-Be concise and professional.
-"""
-
-    response = await llm.ainvoke(prompt)
-
-    return response.content
-
-
-# ===== API ENDPOINT =====
 @app.options("/run-agent")
 async def preflight_run_agent():
-    """Handle CORS preflight requests"""
     return {}
 
 
 @app.post("/run-agent")
-async def run_agent(request: QueryRequest):
-    """Main endpoint for n8n integration"""
-    report = await run_intelligence_cycle(request.query)
+async def run_agent_endpoint(request: QueryRequest):
+    # log incoming body so we can see what n8n is sending
+    print("received request:", request)
+    prompt = f"""
+You are an Executive Intelligence Agent.
 
-    return {
-        "report": report
-    }
+Generate a professional intelligence report about:
+
+{request.query}
+
+Structure:
+- Executive Summary
+- Market Overview
+- Competitive Landscape
+- Strategic Opportunities
+- Risks
+"""
+
+    response = await llm.ainvoke(prompt)
+    return {"report": response.content}
 
 
-# ===== HEALTH CHECK =====
 @app.get("/")
 def root():
-    return {"status": "Agent running"}
+    return {"status": "running"}

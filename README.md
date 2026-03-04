@@ -77,3 +77,8 @@ Response:
 - Implement mock versions of external services for offline testing.
 
 
+## Demo
+
+Autonomous AI Research Agent generating intelligence reports.
+
+![AI Agent Demo](demo/demo.gif)
